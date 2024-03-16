@@ -425,7 +425,6 @@ def pair_freq(X_view, sitefreq_view, psdcounts, max_bin):
 
             @for_range(unique.length)
             def _(x):
-                #print_ln("%s", x)
                 item = unique[x]
                 comparison_results = equal_scalar(c, item)
 
@@ -489,11 +488,6 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
     neg_matrix = negative_matrix(inv_corr)
     exp_matrix = exponential_matrix(neg_matrix)
 
-    print_ln("corr_matrix %s", corr_matrix.reveal())
-    print_ln("inv_corr %s", inv_corr.reveal())
-    print_ln("neg_matrix %s", neg_matrix.reveal())
-    print_ln("exp_matrix %s", exp_matrix.reveal())
-
     result = zeros_2d_by_shape(n_attr * (max_bin - 1)+1, n_attr * (max_bin - 1))
     for i in range(n_attr * (max_bin - 1)):
         for j in range(n_attr * (max_bin - 1)):
@@ -514,60 +508,43 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
                     fields[idx] /= (coupling_view[idx][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
     return fields
 
-def create_matrix_selector_for_vector(vector, indexes_matrix):
-    matrix_selector = zeros_2d_by_shape(len(indexes_matrix), len(vector))
-    for i in range(len(vector)):
-        for j in range(len(indexes_matrix)):
-            for k in range(len(indexes_matrix[0])):
-                condition1 = (i == indexes_matrix[j][k]).if_else(1,0)
-                condition2 =(indexes_matrix[j][k] != -1).if_else(1,0)
-                matrix_selector[j][i] = (condition1+condition2==2).if_else(1, matrix_selector[j][i])
-    return matrix_selector
 
 def compute_energy_new(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
-    indexes1 = zeros_2d_by_shape(n_inst,n_attr)
-    indexes2 = zeros_4d_by_shape(n_inst, n_attr, n_attr, 2)
+
+    matrix_selector1 = zeros_2d_by_shape(n_inst, len(local_fields))
+    matrix_selector2 = zeros_3d_by_shape(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
 
     for i in range(n_inst):
         for j in range(n_attr):
             j_value = X[i][j]
             is_j_value = (j_value != (max_bin-1)).if_else(1, 0)
+
             for k in range(j, n_attr):
                 k_value = (is_j_value == 0).if_else(max_bin-1, X[i][k])
                 is_k_value = (k_value != (max_bin-1)).if_else(1,0)
-                indexes2[i][j][k][0] = (is_k_value + is_j_value == 2).if_else(j * (max_bin - 1) + j_value, -1)
-                indexes2[i][j][k][1] = (is_k_value + is_j_value == 2).if_else(k * (max_bin - 1) + k_value, -1)
-            indexes1[i][j] = (is_j_value==1).if_else(j * (max_bin - 1) + j_value, -1)
 
-    matrix_selector1 = create_matrix_selector_for_vector(local_fields, indexes1)
-    matrix_selector2 = zeros_3d_by_shape(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
+                for l in range(len(coupling_matrix)):
+                    for m in range(len(coupling_matrix[0])):
+                        condition1 = (l==(j * (max_bin - 1) + j_value)).if_else(1,0)
+                        condition2 = (m==(k * (max_bin - 1) + k_value)).if_else(1,0)
+                        condition3 = (is_k_value == 1).if_else(1,0)
+                        matrix_selector2[i][l][m] = ((condition1 + condition2 + condition3) == 3).if_else(1,matrix_selector2[i][l][m])
 
-    for i in range(len(coupling_matrix)):
-        for j in range(len(coupling_matrix[0])):
-            for k in range(n_inst):
-                for l in range(n_attr):
-                    for m in range(l, n_attr):
-                        condition1 = (i==indexes2[k][l][m][0]).if_else(1,0)
-                        condition2 = (j==indexes2[k][l][m][1]).if_else(1,0)
-                        matrix_selector2[k][i][j] = (condition1+condition2==2).if_else(1, matrix_selector2[k][i][j])
-
-    for i in range(n_inst):
+            for k in range(len(local_fields)):
+                condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
+                condition2 = (is_j_value == 1).if_else(1,0)
+                matrix_selector1[i][k] = (condition1 + condition2==2).if_else(1, matrix_selector1[i][k])
+        
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2[i])
         energies[i] -= dot_product(local_fields, matrix_selector1[i])
-        #print_ln("DOT PRORUCT: %s MATRIX %s, SIMPLE %s", i, dot_product_matrix(coupling_matrix, matrix_selector2[i]).reveal(), dot_product(local_fields, matrix_selector1[i]).reveal())
-
-    print_ln("Energies: %s", energies.reveal())
+    
     print_ln("Energies: %s", energies.reveal())
 
     return energies
 
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
-    #print_ln("compute energy input, max_bin: %s", max_bin)
-    #print_ln("X: %s", X.reveal())
-    #print_ln("coupling matrix %s", coupling_matrix.reveal())
-    #print_ln("local fields %s", local_fields.reveal())
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
     indexes1 = zeros_2d_by_shape(n_inst,n_attr)
@@ -590,6 +567,8 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
     for i in range(n_inst):
         energies[i] -= dot_product(local_fields, matrix_selector1[i])
         #subtraction2[i] += dot_product(local_fields, matrix_selector[i])
+
+    print_ln("Energies old: %s", energies.reveal())
     return energies
 
 def fit(X, pseudocounts, max_bin):
@@ -601,19 +580,16 @@ def fit(X, pseudocounts, max_bin):
     localfields = log_1d(localfields)
 
     cutoff = define_cutoff(X, 0.95, coupling_matrix, localfields, max_bin)
-    print_ln("cutoff %s", cutoff.reveal())
     return coupling_matrix, localfields, cutoff
 
 def define_cutoff(X, cutoff_quantile, coupling_matrix, local_fields, max_bin):
     energies = compute_energy_new(X, coupling_matrix, local_fields, max_bin)
     energies.sort()
-    print_ln("CUTOFFF %s", energies[int(len(energies) * cutoff_quantile)].reveal())
     return energies[int(len(energies) * cutoff_quantile)]
 
 def predict(X, coupling_matrix, localfields, cutoff, max_bin):
 
-    energies = [compute_energy_new(X, coupling_matrix, localfields, max_bin)]  # compute the energies in the base binary estimator
-
+    energies = [compute_energy_new(X, coupling_matrix, localfields, max_bin)]
     y_pred = Array(len(X), cint)
 
     y_energies = []
@@ -820,6 +796,7 @@ def test_compute_energy():
     # Call the compute_energy function
     energies = compute_energy_new(X, coupling_matrix, local_fields, max_bin)
     energies.print_reveal_nested()
+
 
 #----------------------------------- TESTING -----------------------------------
 # --------- INPUT DATA ---------

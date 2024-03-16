@@ -241,16 +241,6 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
                             coupling_view[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
     return fields
 
-def create_matrix_selector_for_vector(vector, indexes_matrix):
-    matrix_selector = zeros_2d(len(indexes_matrix), len(vector))
-    for i in range(len(vector)):
-        for j in range(len(indexes_matrix)):
-            for k in range(len(indexes_matrix[0])):
-                if i == indexes_matrix[j][k] and indexes_matrix[j][k] != -1:
-                    matrix_selector[j][i] = 1
-    
-    return matrix_selector
-
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
@@ -262,24 +252,29 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
         for j in range(n_attr):
             j_value = X[i][j]
             is_j_value = 1 if (j_value != (max_bin-1)) else 0
+
             for k in range(j, n_attr):
                 k_value = max_bin-1 if is_j_value == 0 else X[i][k]
                 is_k_value = 1 if (k_value != (max_bin-1)) else 0
 
+                stop = False
                 for l in range(len(coupling_matrix)):
+                    if stop:
+                        break
                     for m in range(len(coupling_matrix[0])):
                         if l == (j * (max_bin - 1) + j_value) and m == (k * (max_bin - 1) + k_value) and is_k_value:
                             matrix_selector2[i][l][m] = 1
+                            stop = True
                             break
 
             for k in range(len(local_fields)):
                 if k == (j * (max_bin - 1) + j_value) and is_j_value:
                     matrix_selector1[i][k] = 1
                     break
-    
-    for i in range(n_inst):
+
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2[i])
         energies[i] -= dot_product(local_fields, matrix_selector1[i])
+    
 
     print("energies", energies)
     return energies
