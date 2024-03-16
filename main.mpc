@@ -311,7 +311,6 @@ def min_along_axis(arr, axis):
 
     return min_values
 
-
 def max_along_axis(arr, axis=0):
     """
     Find the maximum value along a specified axis in a 2D array securely using MP-SPDZ.
@@ -379,12 +378,6 @@ def extract_columns(X_view, i, j):
         column_j[index] = X_view[index][j]
 
     return column_i, column_j
-
-def dot_product(x, y):
-    dp = sfix(0)
-    for i in range(len(x)):
-        dp += x[i]*y[i]
-    return dp
 
 def dot_product_matrix(x, y):
     dp = sfix(0)

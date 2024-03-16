@@ -254,8 +254,9 @@ def create_matrix_selector_for_vector(vector, indexes_matrix):
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
-    indexes1 = zeros_2d(n_inst,n_attr)
-    indexes2 = zeros_4d(n_inst, n_attr, n_attr, 2)
+
+    matrix_selector1 = zeros_2d(n_inst, len(local_fields))
+    matrix_selector2 = zeros_3d(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
 
     for i in range(n_inst):
         for j in range(n_attr):
@@ -264,26 +265,23 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
             for k in range(j, n_attr):
                 k_value = max_bin-1 if is_j_value == 0 else X[i][k]
                 is_k_value = 1 if (k_value != (max_bin-1)) else 0
-                indexes2[i][j][k][0] = j * (max_bin - 1) + j_value if is_k_value + is_j_value == 2 else -1
-                indexes2[i][j][k][1] = k * (max_bin - 1) + k_value if is_k_value + is_j_value == 2 else -1
 
+                for l in range(len(coupling_matrix)):
+                    for m in range(len(coupling_matrix[0])):
+                        if l == (j * (max_bin - 1) + j_value) and m == (k * (max_bin - 1) + k_value) and is_k_value:
+                            matrix_selector2[i][l][m] = 1
+                            break
 
-            indexes1[i][j] = j * (max_bin - 1) + j_value if is_j_value==1 else -1
-
-    matrix_selector1 = create_matrix_selector_for_vector(local_fields, indexes1)
-    matrix_selector2 = zeros_3d(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
-    for i in range(len(coupling_matrix)):
-        for j in range(len(coupling_matrix[0])):
-            for k in range(n_inst):
-                for l in range(n_attr):
-                    for m in range(l, n_attr):
-                        if i == indexes2[k][l][m][0] and j == indexes2[k][l][m][1]:
-                            matrix_selector2[k][i][j] = 1
+            for k in range(len(local_fields)):
+                if k == (j * (max_bin - 1) + j_value) and is_j_value:
+                    matrix_selector1[i][k] = 1
+                    break
     
     for i in range(n_inst):
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2[i])
         energies[i] -= dot_product(local_fields, matrix_selector1[i])
 
+    print("energies", energies)
     return energies
 
 def fit(X, pseudocounts, max_bin):
