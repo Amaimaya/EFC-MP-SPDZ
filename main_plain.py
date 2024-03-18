@@ -245,10 +245,9 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
 
-    matrix_selector1 = zeros_2d(n_inst, len(local_fields))
-    matrix_selector2 = zeros_3d(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
-
     for i in range(n_inst):
+        matrix_selector1 = zeros_1d(len(local_fields))
+        matrix_selector2 = zeros_2d(len(coupling_matrix), len(coupling_matrix[0]))
         for j in range(n_attr):
             j_value = X[i][j]
             is_j_value = 1 if (j_value != (max_bin-1)) else 0
@@ -263,17 +262,17 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
                         break
                     for m in range(len(coupling_matrix[0])):
                         if l == (j * (max_bin - 1) + j_value) and m == (k * (max_bin - 1) + k_value) and is_k_value:
-                            matrix_selector2[i][l][m] = 1
+                            matrix_selector2[l][m] = 1
                             stop = True
                             break
 
             for k in range(len(local_fields)):
                 if k == (j * (max_bin - 1) + j_value) and is_j_value:
-                    matrix_selector1[i][k] = 1
+                    matrix_selector1[k] = 1
                     break
 
-        energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2[i])
-        energies[i] -= dot_product(local_fields, matrix_selector1[i])
+        energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
+        energies[i] -= dot_product(local_fields, matrix_selector1)
     
 
     print("energies", energies)
