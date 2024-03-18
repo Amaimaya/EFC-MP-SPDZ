@@ -244,6 +244,15 @@ def unique_list(arr, return_inverse = False, return_indices = False, duplicate_p
 
     return unique_values_cropped
 
+def find_nth_largest_value_from_array(arr, n):
+    result = sfix(0.0)
+    for i in range(len(arr)):
+        number_of_numbers_lower = sint(0)
+        for j in range(len(arr)):
+            number_of_numbers_lower += (arr[j]<arr[i]).if_else(1,0)
+        result = (number_of_numbers_lower == n).if_else(arr[i], result)
+    return result
+
 def smin(x, y):
     """
     Secure minimum between two sfix numbers.
@@ -520,8 +529,10 @@ def fit(X, pseudocounts, max_bin):
 
 def define_cutoff(X, cutoff_quantile, coupling_matrix, local_fields, max_bin):
     energies = compute_energy(X, coupling_matrix, local_fields, max_bin)
-    energies.sort()
-    return energies[int(len(energies) * cutoff_quantile)]
+    return find_nth_largest_value_from_array(energies, int(len(energies) * cutoff_quantile)) # Is it better than sorting?
+    #energies.sort()
+    #return energies[int(len(energies) * cutoff_quantile)]
+
 
 def predict(X, coupling_matrix, localfields, cutoff, max_bin):
 
