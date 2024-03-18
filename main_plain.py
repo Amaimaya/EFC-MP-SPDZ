@@ -241,7 +241,7 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
                     acc *= (
                             coupling_view[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
             fields[i * (max_bin - 1) + ai] /= acc
-
+    print("Localfields", fields)
     return fields
 
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
@@ -288,6 +288,9 @@ def fit(X, pseudocounts, max_bin):
     localfields = local_fields(coupling_matrix, pairfreq, sitefreq, pseudocounts, max_bin)
     coupling_matrix = log_2d(coupling_matrix)
     localfields = log_1d(localfields)
+
+    print("localfields base", localfields)
+    print("coupling matrix base", coupling_matrix)
 
     cutoff = define_cutoff(X, 0.95, coupling_matrix, localfields, max_bin)
     return sitefreq, pairfreq, coupling_matrix, localfields, cutoff

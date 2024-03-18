@@ -352,13 +352,10 @@ def dot_product_matrix(x, y):
     return dp
 
 def dot_product(x, y):
-    dp = x.same_shape().assign_all(0)
+    dp = sfix(0)
     for i in range(len(x)):
-        if i>0:
-            dp[i] = dp[i-1]+(x[i]*y[i])
-        else:
-            dp[i] = x[i]*y[i]
-    return dp[len(x)-1]
+        dp += x[i]*y[i]
+    return dp
 
 # -------------------------------- EFC --------------------------------
 
@@ -462,12 +459,12 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
         for ai in range(max_bin - 1):
             idx = i * (max_bin - 1) + ai
             log_value = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
-            acc = 0
+            acc = sint(0)
             for j in range(n_inst):
                 for aj in range(max_bin - 1):
                     acc += (coupling_view[idx][j * (max_bin - 1) + aj] * sitefreq_view[j][aj]) # Improvement: We don't need the exponential coupling_view, so no log of coupling or local_fields later
             fields[idx] = mpc_math.log_fx(log_value, E) - acc
-                
+
     return fields
 
 
@@ -480,8 +477,8 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
 
 
     for i in range(n_inst):
-        matrix_selector1 = zeros_1d_by_shape(len(local_fields))
-        matrix_selector2 = zeros_2d_by_shape(len(coupling_matrix), len(coupling_matrix[0]))
+        matrix_selector1 = [0 for _ in range(len(local_fields))] # Make matrix selectors plaintext
+        matrix_selector2 = [[0 for _ in range(len(coupling_matrix))] for _ in range(len(coupling_matrix[0]))]
 
         for j in range(n_attr):
             j_value = X[i][j]
@@ -502,10 +499,10 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
                 condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
                 condition2 = (is_j_value == 1).if_else(1,0)
                 matrix_selector1[k] = (condition1 + condition2==2).if_else(1, matrix_selector1[k])
-        
+
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
         energies[i] -= dot_product(local_fields, matrix_selector1)
-    
+
     print_ln("Energies: %s", energies.reveal())
 
     return energies
