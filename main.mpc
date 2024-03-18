@@ -493,8 +493,12 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
             fields[idx] = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
 
             for j in range(n_inst):
+                acc = 1
                 for aj in range(max_bin - 1):
-                    fields[idx] /= (coupling_view[idx][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
+                    acc *= (coupling_view[idx][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
+                
+                fields[idx] /= acc
+                
     return fields
 
 
@@ -826,7 +830,7 @@ max_bin = 3
 
 # --------- TRAINING PHASE ---------
 # Train the classifier
-'''coupling_matrix, localfields, cutoff = fit(X_train, sfix(0.5), max_bin)
+coupling_matrix, localfields, cutoff = fit(X_train, sfix(0.5), max_bin)
 coupling_matrix.print_reveal_nested()
 localfields.print_reveal_nested()
 print_ln("%s cutoff orig", cutoff.reveal())
@@ -838,7 +842,7 @@ cutoff_arr.write_to_file(position = 0)
 #sfix.write_to_file(cutoff, position = 0)
 coupling_matrix.write_to_file(position = 1)
 localfields.write_to_file(position = (1+(len(coupling_matrix)*len(coupling_matrix[0]))))
-'''
+
 
 # --------- INFERENCE PHASE ---------
 # Read classifier's info from file

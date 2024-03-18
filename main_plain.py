@@ -236,9 +236,12 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
         for ai in range(max_bin - 1):
             fields[i * (max_bin - 1) + ai] = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
             for j in range(n_inst):
+                acc = 1
                 for aj in range(max_bin - 1):
-                    fields[i * (max_bin - 1) + ai] /= (
+                    acc *= (
                             coupling_view[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
+                fields[i * (max_bin - 1) + ai] /= acc
+
     return fields
 
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
