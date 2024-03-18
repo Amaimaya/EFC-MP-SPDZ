@@ -345,17 +345,6 @@ def max_along_axis(arr, axis=0):
 
     return max_values
 
-def create_matrix_selector(vector, indexes_matrix):
-    matrix_selector = zeros_2d_by_shape(len(indexes_matrix), len(vector))
-    for i in range(len(vector)):
-        for j in range(len(indexes_matrix)):
-            for k in range(len(indexes_matrix[0])):
-                first_condition = (i == indexes_matrix[j][k]).if_else(1,0)
-                second_condition = (indexes_matrix[j][k] != -1).if_else(1,0) #TODO: is it the best way?
-                matrix_selector[j][i] = (first_condition+second_condition==2).if_else(1, matrix_selector[j][i])
-
-    return matrix_selector
-
 def equal_lists(list1, list2):
     if len(list1) != len(list2):
         raise ValueError("Lists must be of the same length.")
@@ -513,10 +502,10 @@ def compute_energy_new(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
 
-    matrix_selector1 = zeros_2d_by_shape(n_inst, len(local_fields))
-    matrix_selector2 = zeros_3d_by_shape(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
-
     for i in range(n_inst):
+        matrix_selector1 = zeros_2d_by_shape(n_inst, len(local_fields))
+        matrix_selector2 = zeros_3d_by_shape(n_inst, len(coupling_matrix), len(coupling_matrix[0]))
+        
         for j in range(n_attr):
             j_value = X[i][j]
             is_j_value = (j_value != (max_bin-1)).if_else(1, 0)
@@ -530,15 +519,15 @@ def compute_energy_new(X, coupling_matrix, local_fields, max_bin):
                         condition1 = (l==(j * (max_bin - 1) + j_value)).if_else(1,0)
                         condition2 = (m==(k * (max_bin - 1) + k_value)).if_else(1,0)
                         condition3 = (is_k_value == 1).if_else(1,0)
-                        matrix_selector2[i][l][m] = ((condition1 + condition2 + condition3) == 3).if_else(1,matrix_selector2[i][l][m])
+                        matrix_selector2[l][m] = ((condition1 + condition2 + condition3) == 3).if_else(1,matrix_selector2[i][l][m])
 
             for k in range(len(local_fields)):
                 condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
                 condition2 = (is_j_value == 1).if_else(1,0)
-                matrix_selector1[i][k] = (condition1 + condition2==2).if_else(1, matrix_selector1[i][k])
+                matrix_selector1[k] = (condition1 + condition2==2).if_else(1, matrix_selector1[i][k])
         
-        energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2[i])
-        energies[i] -= dot_product(local_fields, matrix_selector1[i])
+        energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
+        energies[i] -= dot_product(local_fields, matrix_selector1)
     
     print_ln("Energies: %s", energies.reveal())
 
