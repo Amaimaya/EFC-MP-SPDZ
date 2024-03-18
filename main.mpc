@@ -65,29 +65,6 @@ def find_indices_equal_to_value(arr, value):
 
     return results.get_part(sum_of_equal_public + 1, len(arr) - sum_of_equal_public-1)
 
-
-def exponential_matrix(matrix):
-    e = cfix(E)
-    matrix_exponentiated = matrix.same_shape()
-    for i in range(len(matrix)):
-        for j in range(len(matrix)):
-            matrix_exponentiated[i][j] = e**matrix[i][j] #TODO: VERY SLOW :(
-            #matrix_exponentiated[i][j] = mpc_math.exp2_fx(matrix[i][j])
-    return matrix_exponentiated
-
-def log_1d(arr):
-    log_1d_arr = arr.same_shape()
-    for i in range(len(arr)):
-        log_1d_arr[i] = mpc_math.log_fx(arr[i], E)
-    return log_1d_arr
-
-def log_2d(matrix):
-    log_2d_matrix = matrix.same_shape()
-    for i in range(len(matrix)):
-        for j in range(len(matrix[0])):
-            log_2d_matrix[i][j] = mpc_math.log_fx(matrix[i][j], E)
-    return log_2d_matrix
-
 # Arrays creation
 
 def zeros_1d_by_array(array):
@@ -473,29 +450,23 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
     inv_corr[3][2] = 2.888888
     inv_corr[3][3] = 9.148148
 
-
     neg_matrix = negative_matrix(inv_corr)
-    exp_matrix = exponential_matrix(neg_matrix)
 
-    result = zeros_2d_by_shape(n_attr * (max_bin - 1)+1, n_attr * (max_bin - 1))
-    for i in range(n_attr * (max_bin - 1)):
-        for j in range(n_attr * (max_bin - 1)):
-            result[i][j] = exp_matrix[i][j]
-    return result
+    return neg_matrix
 
 def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin):
     n_inst = len(sitefreq_view)
-    fields = Array(n_inst * (max_bin - 1)+1, sfix)
+    fields = Array(n_inst * (max_bin - 1), sfix)
 
     for i in range(n_inst):
         for ai in range(max_bin - 1):
             idx = i * (max_bin - 1) + ai
-            fields[idx] = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
-            acc = 1
+            log_value = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
+            acc = 0
             for j in range(n_inst):
                 for aj in range(max_bin - 1):
-                    acc *= (coupling_view[idx][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
-            fields[idx] /= acc
+                    acc += (coupling_view[idx][j * (max_bin - 1) + aj] * sitefreq_view[j][aj]) # Improvement: We don't need the exponential coupling_view, so no log of coupling or local_fields later
+            fields[idx] = mpc_math.log_fx(log_value, E) - acc
                 
     return fields
 
@@ -546,8 +517,6 @@ def fit(X, pseudocounts, max_bin):
     pairfreq = pair_freq(X,sitefreq, pseudocounts, max_bin)
     coupling_matrix = coupling(pairfreq, sitefreq, pseudocounts, max_bin)
     localfields = local_fields(coupling_matrix, pairfreq, sitefreq, pseudocounts, max_bin)
-    coupling_matrix = log_2d(coupling_matrix)
-    localfields = log_1d(localfields)
 
     cutoff = define_cutoff(X, 0.95, coupling_matrix, localfields, max_bin)
     return coupling_matrix, localfields, cutoff
@@ -824,8 +793,8 @@ localfields.write_to_file(position = (1+(len(coupling_matrix)*len(coupling_matri
 
 # --------- INFERENCE PHASE ---------
 # Read classifier's info from file
-coupling_matrix = Matrix(5, 4, sfix)
-localfields = Array(5, sfix)
+coupling_matrix = Matrix(4, 4, sfix)
+localfields = Array(4, sfix)
 
 cutoff_arr_presaved = Array(1, sfix)
 cutoff_arr_presaved.read_from_file(0)

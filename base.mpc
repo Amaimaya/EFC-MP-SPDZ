@@ -477,15 +477,11 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
     neg_matrix = negative_matrix(inv_corr)
     exp_matrix = exponential_matrix(neg_matrix)
 
-    result = zeros_2d_by_shape(n_attr * (max_bin - 1)+1, n_attr * (max_bin - 1))
-    for i in range(n_attr * (max_bin - 1)):
-        for j in range(n_attr * (max_bin - 1)):
-            result[i][j] = exp_matrix[i][j]
-    return result
+    return exp_matrix
 
 def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin):
     n_inst = len(sitefreq_view)
-    fields = Array(n_inst * (max_bin - 1)+1, sfix)
+    fields = Array(n_inst * (max_bin - 1), sfix)
 
     for i in range(n_inst):
         for ai in range(max_bin - 1):
@@ -821,8 +817,8 @@ localfields.write_to_file(position = (1+(len(coupling_matrix)*len(coupling_matri
 
 # --------- INFERENCE PHASE ---------
 # Read classifier's info from file
-coupling_matrix = Matrix(5, 4, sfix)
-localfields = Array(5, sfix)
+coupling_matrix = Matrix(4, 4, sfix)
+localfields = Array(4, sfix)
 
 cutoff_arr_presaved = Array(1, sfix)
 cutoff_arr_presaved.read_from_file(0)
