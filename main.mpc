@@ -448,7 +448,7 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
                 for aj in range(max_bin - 1):
                     corr_matrix[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] = (
                             pairfreq_view[i][ai][j][aj] - sitefreq_view[i][ai] * sitefreq_view[j][aj])
-
+    print_ln("Corr_matrix %s", corr_matrix.reveal())
     #inv_corr = matrix_inverse(corr_matrix, 1000)
 
     inv_corr = Matrix(4, 4, sfix)
@@ -502,9 +502,13 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
     return fields
 
 
-def compute_energy_new(X, coupling_matrix, local_fields, max_bin):
+def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
+
+    print_ln("coupling_matrix: %s", coupling_matrix.reveal())
+    print_ln("local_fields: %s", local_fields.reveal())
+
 
     for i in range(n_inst):
         matrix_selector1 = zeros_1d_by_shape(len(local_fields))
@@ -537,32 +541,7 @@ def compute_energy_new(X, coupling_matrix, local_fields, max_bin):
 
     return energies
 
-def compute_energy(X, coupling_matrix, local_fields, max_bin):
-    n_inst, n_attr = len(X), len(X[0])
-    energies = zeros_1d(n_inst)
-    indexes1 = zeros_2d_by_shape(n_inst,n_attr)
 
-    for i in range(n_inst):
-        for j in range(n_attr):
-            j_value = X[i][j]
-            is_j_value = (j_value != (max_bin-1)).if_else(1, 0)
-            for k in range(j, n_attr):
-                k_value = (is_j_value == 0).if_else(max_bin-1, X[i][k])
-                is_k_value = (k_value != (max_bin-1)).if_else(1, 0)
-                idx_1 = (is_k_value + is_j_value == 2).if_else(j * (max_bin - 1) + j_value, len(coupling_matrix)-1)
-                idx_2 = (is_k_value + is_j_value == 2).if_else(k * (max_bin - 1) + k_value, 0)
-                energies[i] = energies[i] - coupling_matrix[idx_1.reveal()][idx_2.reveal()]
-            indexes1[i][j] = (is_j_value==1).if_else(j * (max_bin - 1) + j_value, -1)
-            #energies[i] = energies[i] - local_fields[idx.reveal()]
-
-    matrix_selector1 = create_matrix_selector(local_fields, indexes1)
-
-    for i in range(n_inst):
-        energies[i] -= dot_product(local_fields, matrix_selector1[i])
-        #subtraction2[i] += dot_product(local_fields, matrix_selector[i])
-
-    print_ln("Energies old: %s", energies.reveal())
-    return energies
 
 def fit(X, pseudocounts, max_bin):
     sitefreq = site_freq(X, pseudocounts, max_bin)
@@ -576,13 +555,13 @@ def fit(X, pseudocounts, max_bin):
     return coupling_matrix, localfields, cutoff
 
 def define_cutoff(X, cutoff_quantile, coupling_matrix, local_fields, max_bin):
-    energies = compute_energy_new(X, coupling_matrix, local_fields, max_bin)
+    energies = compute_energy(X, coupling_matrix, local_fields, max_bin)
     energies.sort()
     return energies[int(len(energies) * cutoff_quantile)]
 
 def predict(X, coupling_matrix, localfields, cutoff, max_bin):
 
-    energies = [compute_energy_new(X, coupling_matrix, localfields, max_bin)]
+    energies = [compute_energy(X, coupling_matrix, localfields, max_bin)]
     y_pred = Array(len(X), cint)
 
     y_energies = []
@@ -787,7 +766,7 @@ def test_compute_energy():
     local_fields[3] = -0.902969
 
     # Call the compute_energy function
-    energies = compute_energy_new(X, coupling_matrix, local_fields, max_bin)
+    energies = compute_energy(X, coupling_matrix, local_fields, max_bin)
     energies.print_reveal_nested()
 
 
@@ -831,9 +810,10 @@ max_bin = 3
 # --------- TRAINING PHASE ---------
 # Train the classifier
 coupling_matrix, localfields, cutoff = fit(X_train, sfix(0.5), max_bin)
-coupling_matrix.print_reveal_nested()
-localfields.print_reveal_nested()
 print_ln("%s cutoff orig", cutoff.reveal())
+print_ln("%s couplong", coupling_matrix.reveal())
+print_ln("%s localfields", localfields.reveal())
+
 
 # Save the classifier info to file
 cutoff_arr = Array(1, sfix)
