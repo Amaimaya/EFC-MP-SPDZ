@@ -222,7 +222,7 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
                 for aj in range(max_bin - 1):
                     corr_matrix[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] = (
                             pairfreq_view[i][ai][j][aj] - sitefreq_view[i][ai] * sitefreq_view[j][aj])
-
+    print("Correlation", corr_matrix)
     inv_corr = cholesky_matrix_inverse(corr_matrix)
     negative_m = negative(inv_corr)
     result = exponential_matrix(negative_m)
@@ -235,12 +235,12 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
     for i in range(n_inst):
         for ai in range(max_bin - 1):
             fields[i * (max_bin - 1) + ai] = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
+            acc = 1
             for j in range(n_inst):
-                acc = 1
                 for aj in range(max_bin - 1):
                     acc *= (
                             coupling_view[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
-                fields[i * (max_bin - 1) + ai] /= acc
+            fields[i * (max_bin - 1) + ai] /= acc
 
     return fields
 

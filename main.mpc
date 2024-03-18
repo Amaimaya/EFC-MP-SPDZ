@@ -491,13 +491,11 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
         for ai in range(max_bin - 1):
             idx = i * (max_bin - 1) + ai
             fields[idx] = sitefreq_view[i][ai] / sitefreq_view[i][max_bin - 1]
-
+            acc = 1
             for j in range(n_inst):
-                acc = 1
                 for aj in range(max_bin - 1):
                     acc *= (coupling_view[idx][j * (max_bin - 1) + aj] ** sitefreq_view[j][aj])
-                
-                fields[idx] /= acc
+            fields[idx] /= acc
                 
     return fields
 
