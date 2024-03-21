@@ -510,7 +510,7 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
                         matrix_selector2[m][l] = ((condition3 + condition4 + is_k_value) == 3).if_else(1,matrix_selector2[m][l])
             for k in range(len(local_fields)):
                 condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
-                matrix_selector1[k] = (condition1 + j_value==2).if_else(1, matrix_selector1[k])
+                matrix_selector1[k] = (condition1 + is_j_value==2).if_else(1, matrix_selector1[k])
 
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
         energies[i] -= dot_product(local_fields, matrix_selector1)
