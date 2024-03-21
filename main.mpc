@@ -500,14 +500,19 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
                 value_condition_2 = k * (max_bin - 1) + k_value
 
                 for l in range(len(coupling_matrix)):
+                    # Leverage the fact that matrix_selector is symmetric - we only need to iterate through upper half
                     for m in range(l, len(coupling_matrix)):
-                        # Leverage the fact that matrix_selector is symmetric - we only need to iterate through upper half
-                        condition1 = (l==value_condition_1).if_else(1,0)
-                        condition2 = (m==value_condition_2).if_else(1,0)
-                        condition3 = (m==value_condition_1).if_else(1,0)
-                        condition4 = (l==value_condition_2).if_else(1,0)
-                        matrix_selector2[l][m] = ((condition1 + condition2 + is_k_value) == 3).if_else(1,matrix_selector2[l][m])
-                        matrix_selector2[m][l] = ((condition3 + condition4 + is_k_value) == 3).if_else(1,matrix_selector2[m][l])
+
+                        condition1 = l-value_condition_1
+                        condition2 = m-value_condition_2
+                        condition3 = m-value_condition_1
+                        condition4 = l-value_condition_2
+
+                        matrix_selector2_condition1 = condition1.square() + condition2.square() + (1-is_k_value).square()
+                        matrix_selector2_condition2 = condition3.square() + condition4.square() + (1-is_k_value).square()
+                        matrix_selector2[l][m] = (matrix_selector2_condition1 == 0).if_else(1,matrix_selector2[l][m]) # TODO: what is better: square, or power of 2 (2^c1 + 2^c2 + 2^k == 1)or absolute values
+                        matrix_selector2[m][l] = (matrix_selector2_condition2 == 0).if_else(1,matrix_selector2[m][l])
+
             for k in range(len(local_fields)):
                 condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
                 matrix_selector1[k] = (condition1 + is_j_value==2).if_else(1, matrix_selector1[k])
