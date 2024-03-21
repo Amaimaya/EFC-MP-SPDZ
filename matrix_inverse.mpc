@@ -1,0 +1,100 @@
+def zeros_1d(length):
+    array = Array(length, sfix)
+    return array.assign_all(0.0)
+
+def zeros_2d_by_shape(rows, columns):
+    matrix = Matrix(rows, columns, sfix)
+    return matrix.assign_all(0.0)
+
+def lu_decomposition(A):
+    """
+    Perform LU decomposition of a matrix A
+    """
+    n = len(A)
+    L = zeros_2d_by_shape(n, n)
+    U = zeros_2d_by_shape(n, n)
+    
+    for j in range(n):
+        L[j][j] = 1.0
+        for i in range(j+1):
+            s1 = 0
+            for k in range(i):
+                s1 += U[k][j] * L[i][k]
+
+            U[i][j] = A[i][j] - s1
+        
+        for i in range(j, n):
+            s2 = 0
+            for k in range(j):
+                s2 += U[k][j] * L[i][k]
+
+            L[i][j] = (A[i][j] - s2) / U[j][j]
+
+    return L, U
+
+def forward_substitution(L, b):
+    """
+    Solve the system of linear equations Lx = b for x using forward substitution.
+    """
+    n = len(b)
+    x = zeros_1d(n)
+    for i in range(n):
+        sum_x = 0
+        for j in range(i):
+            sum_x += L[i][j] * x[j]
+        x[i] = b[i] - sum_x
+    return x
+
+def backward_substitution(U, y):
+    """
+    Solve the system of linear equations Ux = y for x using backward substitution.
+    """
+    n = len(y)
+    x = zeros_1d(n)
+    for i in range(n-1, -1, -1):
+        sum_x = 0
+        for j in range(i+1, n):
+            sum_x += U[i][j] * x[j]
+        x[i] = (y[i] - sum_x) / U[i][i]
+
+    return x
+
+def invert_matrix(A):
+    n = len(A)
+    L, U = lu_decomposition(A)
+    A_inv = zeros_2d_by_shape(n, n)
+    for i in range(n):
+        e = zeros_1d(n)
+        e[i] = 1  # ith column of the identity matrix
+        y = forward_substitution(L, e)
+        x = backward_substitution(U, y)
+        # Assign the resulting x vector to the correct column in A_inv
+        for j in range(n):
+            A_inv[j][i] = x[j]
+
+    # Manually transpose A_inv without using zip
+    A_inv_transposed = zeros_2d_by_shape(n, n)
+    for i in range(n):
+        for j in range(n):
+            A_inv_transposed[i][j] = A_inv[j][i]
+
+    return A_inv_transposed
+
+# Example matrix
+A = Matrix(4, 4, sfix)  # 4x4 matrix of sfix elements
+
+A_values = [
+    [0.2065972222222222, -0.15798611111111108, 0.059027777777777804, 0.0069444444444444475],
+    [-0.15798611111111108, 0.2482638888888889, -0.04513888888888887, -0.03472222222222221],
+    [0.059027777777777804, -0.04513888888888887, 0.24305555555555555, -0.06944444444444443],
+    [0.0069444444444444475, -0.03472222222222221, -0.06944444444444443, 0.1388888888888889]
+]
+
+for i in range(4):
+    for j in range(4):
+        A[i][j] = sfix(A_values[i][j])
+
+# Invert the matrix using LU factorization
+
+A_inv = invert_matrix(A)
+A_inv.print_reveal_nested()
