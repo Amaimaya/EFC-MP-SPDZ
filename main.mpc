@@ -185,9 +185,82 @@ def compute_max_from_matrix(matrix):
         for j in range(len(matrix[0])):
             max_value = (max_value>matrix[i][j]).if_else(max_value, matrix[i][j])
     return max_value
+def lu_decomposition(A):
+    """
+    Perform LU decomposition of a matrix A
+    """
+    n = len(A)
+    L = zeros_2d_by_shape(n, n)
+    U = zeros_2d_by_shape(n, n)
+    
+    for j in range(n):
+        L[j][j] = 1.0
+        for i in range(j+1):
+            s1 = 0
+            for k in range(i):
+                s1 += U[k][j] * L[i][k]
 
-def matrix_inverse(matrix, iterations, stop=True): #TOO: IS IT CORRECT??? I just took it from the official github. Also, VEEEEEEEEEEEEERY slow
-    return ml.mr(matrix, iterations, stop=True) # SOURCE: https://github.com/data61/MP-SPDZ/blob/master/Compiler/ml.py#L3452
+            U[i][j] = A[i][j] - s1
+        
+        for i in range(j, n):
+            s2 = 0
+            for k in range(j):
+                s2 += U[k][j] * L[i][k]
+
+            L[i][j] = (A[i][j] - s2) / U[j][j]
+
+    return L, U
+
+def forward_substitution(L, b):
+    """
+    Solve the system of linear equations Lx = b for x using forward substitution.
+    """
+    n = len(b)
+    x = zeros_1d(n)
+    for i in range(n):
+        sum_x = 0
+        for j in range(i):
+            sum_x += L[i][j] * x[j]
+        x[i] = b[i] - sum_x
+    return x
+
+def backward_substitution(U, y):
+    """
+    Solve the system of linear equations Ux = y for x using backward substitution.
+    """
+    n = len(y)
+    x = zeros_1d(n)
+    for i in range(n-1, -1, -1):
+        sum_x = 0
+        for j in range(i+1, n):
+            sum_x += U[i][j] * x[j]
+        x[i] = (y[i] - sum_x) / U[i][i]
+
+    return x
+
+def invert_matrix(A):
+    n = len(A)
+    L, U = lu_decomposition(A)
+    A_inv = zeros_2d_by_shape(n, n)
+    for i in range(n):
+        e = zeros_1d(n)
+        e[i] = 1  # ith column of the identity matrix
+        y = forward_substitution(L, e)
+        x = backward_substitution(U, y)
+        # Assign the resulting x vector to the correct column in A_inv
+        for j in range(n):
+            A_inv[j][i] = x[j]
+
+    # Manually transpose A_inv without using zip
+    A_inv_transposed = zeros_2d_by_shape(n, n)
+    for i in range(n):
+        for j in range(n):
+            A_inv_transposed[i][j] = A_inv[j][i]
+
+    return A_inv_transposed
+
+def matrix_inverse(matrix, iterations, stop=False):
+    return ml.mr(matrix, iterations, stop)
 
 def cantor(x, y):
     output = Array(len(x), sfix)
@@ -271,29 +344,17 @@ def min_along_axis(arr, axis):
 
     Parameters:
     - arr (list of lists of sfix): 2D array of secret shared values.
-    - axis (int): Axis along which to find the minimum value (0 for rows, 1 for columns).
+    - axis (int): Axis along which to find the minimum value (0 for columns, 1 for rows).
 
     Returns:
-    - list of sfix or sfix: Minimum value(s) along the specified axis.
+    - list of sfix: Minimum value(s) along the specified axis.
     """
     if axis == 0:
-        # Find minimum values along rows (axis=0)
-        min_values = sfix.Array(len(arr[0]))
-        for j in range(len(arr[0])):  # Iterate over columns
-            min_val = arr[0][j]
-            for i in range(1, len(arr)):  # Iterate over rows
-                min_val = smin(min_val, arr[i][j])
-            min_values[j] = min_val
+        min_values = [tree_reduce(lambda x, y: x.min(y), list(col)) for col in list(zip(*arr))]
     elif axis == 1:
-        # Find minimum values along columns (axis=1)
-        min_values = []
-        for row in arr:
-            min_val = row[0]
-            for val in row[1:]:
-                min_val = smin(min_val, val)
-            min_values.append(min_val)
+        min_values = [tree_reduce(lambda x, y: x.min(y), row) for row in arr]
     else:
-        raise ValueError("Invalid axis. Use 0 for rows or 1 for columns.")
+        raise ValueError("Invalid axis. Use 0 for columns or 1 for rows.")
 
     return min_values
 
@@ -309,23 +370,9 @@ def max_along_axis(arr, axis=0):
     - list of sfix: Maximum value(s) along the specified axis.
     """
     if axis == 0:
-        # Transpose the array to work with columns as if they were rows
-        transposed_arr = list(zip(*arr))
-        max_values = []
-        for col in transposed_arr:
-            max_val = col[0]
-            for val in col[1:]:
-                max_val = smax(max_val, val)
-            max_values.append(max_val)
-
+        max_values = [tree_reduce(lambda x, y: x.max(y), list(col)) for col in list(zip(*arr))]
     elif axis == 1:
-        max_values = []
-        for row in arr:
-            max_val = row[0]
-            for val in row[1:]:
-                max_val = smax(max_val, val)
-            max_values.append(max_val)
-
+        max_values = [tree_reduce(lambda x, y: x.max(y), row) for row in arr]
     else:
         raise ValueError("Invalid axis. Use 0 for rows or 1 for columns.")
 
@@ -418,7 +465,6 @@ def pair_freq(X_view, sitefreq_view, psdcounts, max_bin):
             def _(y):
                 pairfreq[i][x][i][y] = (x == y).if_else(sitefreq_view[i][x], 0.0)
 
-
     return pairfreq
 
 def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
@@ -431,30 +477,8 @@ def coupling(pairfreq_view, sitefreq_view, psdcounts, max_bin):
                 for aj in range(max_bin - 1):
                     corr_matrix[i * (max_bin - 1) + ai][j * (max_bin - 1) + aj] = (
                             pairfreq_view[i][ai][j][aj] - sitefreq_view[i][ai] * sitefreq_view[j][aj])
-    print_ln("Corr_matrix %s", corr_matrix.reveal())
-    #inv_corr = matrix_inverse(corr_matrix, 1000)
 
-    inv_corr = Matrix(4, 4, sfix)
-
-    inv_corr[0][0] = 9.814814
-    inv_corr[0][1] = 6.111111
-    inv_corr[0][2] = -1.111111
-    inv_corr[0][3] = 0.481481
-
-    inv_corr[1][0] = 6.111111
-    inv_corr[1][1] = 8.333333
-    inv_corr[1][2] = 0.666666
-    inv_corr[1][3] = 2.111111
-
-    inv_corr[2][0] = -1.111111
-    inv_corr[2][1] = 0.666666
-    inv_corr[2][2] = 5.333333
-    inv_corr[2][3] = 2.888888
-
-    inv_corr[3][0] = 0.481481
-    inv_corr[3][1] = 2.111111
-    inv_corr[3][2] = 2.888888
-    inv_corr[3][3] = 9.148148
+    inv_corr = invert_matrix(corr_matrix)
 
     neg_matrix = negative_matrix(inv_corr)
 
@@ -481,12 +505,8 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
 
-    print_ln("coupling_matrix: %s", coupling_matrix.reveal())
-    print_ln("local_fields: %s", local_fields.reveal())
-
-
     for i in range(n_inst):
-        matrix_selector1 = [0 for _ in range(len(local_fields))] # Make matrix selectors plaintext
+        matrix_selector1 = [0 for _ in range(len(local_fields))]
         matrix_selector2 = [[0 for _ in range(len(coupling_matrix))] for _ in range(len(coupling_matrix[0]))]
 
         for j in range(n_attr):
@@ -500,7 +520,6 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
                 value_condition_2 = k * (max_bin - 1) + k_value
 
                 for l in range(len(coupling_matrix)):
-                    # Leverage the fact that matrix_selector is symmetric - we only need to iterate through upper half
                     for m in range(l, len(coupling_matrix)):
 
                         condition1 = l-value_condition_1
@@ -519,8 +538,6 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
 
         energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
         energies[i] -= dot_product(local_fields, matrix_selector1)
-
-    print_ln("Energies: %s", energies.reveal())
 
     return energies
 
@@ -547,19 +564,10 @@ def predict(X, coupling_matrix, localfields, cutoff, max_bin):
     energies = [compute_energy(X, coupling_matrix, localfields, max_bin)]
     y_pred = Array(len(X), cint)
 
-    y_energies = []
+    min_energies = min_along_axis(energies, 0)
 
     for row in range(len(X)):
-        y_energies.append([energies[i][row] for i in range(len(energies))])
-        # Compute minimum energy in a row
-        min_energy = sfix(1683.0)  # Initialize min_energy to positive infinity,
-        for i in range(len(energies)):
-            current_energy = energies[i][row]
-            #current_energy = sfix(current_energy)
-            min_energy = (current_energy < min_energy).if_else(current_energy, min_energy)
-
-        result = (min_energy < cutoff).if_else(0,1) # See if min_energy is below cutoff (non malicious) or above (malicious)
-        y_pred[row] = result.reveal()
+        y_pred[row] = (min_energies[row] < cutoff).if_else(0,1).reveal()
 
     return y_pred
 
@@ -793,10 +801,6 @@ max_bin = 3
 # --------- TRAINING PHASE ---------
 # Train the classifier
 '''coupling_matrix, localfields, cutoff = fit(X_train, sfix(0.5), max_bin)
-print_ln("%s cutoff orig", cutoff.reveal())
-print_ln("%s couplong", coupling_matrix.reveal())
-print_ln("%s localfields", localfields.reveal())
-
 
 # Save the classifier info to file
 cutoff_arr = Array(1, sfix)
@@ -820,13 +824,6 @@ coupling_matrix_presaved.read_from_file(1)
 localfields_presaved = Array(len(localfields), sfix)
 localfields_presaved.read_from_file(1+(len(coupling_matrix)*len(coupling_matrix[0])))
 
-print_ln("%s cutoff presaved", cutoff_presaved.reveal())
-print_ln("%s couplong presaved", coupling_matrix_presaved.reveal())
-print_ln("%s localfields presaved", localfields_presaved.reveal())
 y_pred_presaved = predict(X_test, coupling_matrix_presaved, localfields_presaved, cutoff_presaved, max_bin)
 y_pred_presaved.print_reveal_nested()
 precision, recall = calculate_metrics(y_test, y_pred_presaved)
-
-print_ln("Precision pres: %s", precision.reveal())
-print_ln("Recall pres: %s", recall.reveal())
-
