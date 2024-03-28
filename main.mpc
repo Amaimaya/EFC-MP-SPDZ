@@ -259,9 +259,6 @@ def invert_matrix(A):
 
     return A_inv_transposed
 
-def matrix_inverse(matrix, iterations, stop=False):
-    return ml.mr(matrix, iterations, stop)
-
 def cantor(x, y):
     output = Array(len(x), sfix)
     for i in range(len(x)):
@@ -325,18 +322,6 @@ def find_nth_largest_value_from_array(arr, n):
             number_of_numbers_lower += (arr[j]<arr[i]).if_else(1,0)
         result = (number_of_numbers_lower == n).if_else(arr[i], result)
     return result
-
-def smin(x, y):
-    """
-    Secure minimum between two sfix numbers.
-    """
-    return x * (x < y) + y * (y <= x)
-
-def smax(x, y):
-    """
-    Secure maximum between two sfix numbers.
-    """
-    return x * (x > y) + y * (y >= x)
 
 def min_along_axis(arr, axis):
     """
@@ -404,13 +389,7 @@ def extract_columns(X_view, i, j):
 def dot_product_matrix(x, y):
     dp = sfix(0)
     for i in range(len(x)):
-        dp += dot_product(x[i], y[i])
-    return dp
-
-def dot_product(x, y):
-    dp = sfix(0)
-    for i in range(len(x)):
-        dp += x[i]*y[i]
+        dp += sfix.dot_product(x[i], y[i])
     return dp
 
 # -------------------------------- EFC --------------------------------
@@ -504,10 +483,11 @@ def local_fields(coupling_view, pairfreq_view, sitefreq_view, psdcounts, max_bin
 def compute_energy(X, coupling_matrix, local_fields, max_bin):
     n_inst, n_attr = len(X), len(X[0])
     energies = zeros_1d(n_inst)
+    coupling_matrix_len = len(coupling_matrix)
 
     for i in range(n_inst):
-        matrix_selector1 = [0 for _ in range(len(local_fields))]
-        matrix_selector2 = [[0 for _ in range(len(coupling_matrix))] for _ in range(len(coupling_matrix[0]))]
+        selector_fields = zeros_1d_by_array(local_fields)
+        selector_coupling = zeros_2d_by_matrix(coupling_matrix)
 
         for j in range(n_attr):
             j_value = X[i][j]
@@ -516,58 +496,50 @@ def compute_energy(X, coupling_matrix, local_fields, max_bin):
 
             for k in range(j, n_attr):
                 k_value = (is_j_value == 0).if_else(max_bin-1, X[i][k])
-                is_k_value = (k_value != (max_bin-1)).if_else(1,0)
+                is_k_value = k_value != (max_bin-1)
                 value_condition_2 = k * (max_bin - 1) + k_value
 
-                for l in range(len(coupling_matrix)):
-                    for m in range(l, len(coupling_matrix)):
-
+                for l in range(coupling_matrix_len):
+                    for m in range(coupling_matrix_len):
                         condition1 = l-value_condition_1
                         condition2 = m-value_condition_2
                         condition3 = m-value_condition_1
                         condition4 = l-value_condition_2
 
-                        matrix_selector2_condition1 = condition1.square() + condition2.square() + (1-is_k_value).square()
-                        matrix_selector2_condition2 = condition3.square() + condition4.square() + (1-is_k_value).square()
-                        matrix_selector2[l][m] = (matrix_selector2_condition1 == 0).if_else(1,matrix_selector2[l][m]) # TODO: what is better: square, or power of 2 (2^c1 + 2^c2 + 2^k == 1)or absolute values
-                        matrix_selector2[m][l] = (matrix_selector2_condition2 == 0).if_else(1,matrix_selector2[m][l])
+                        selector_coupling_condition1 = condition1.square() + condition2.square() + (1-is_k_value).square()
+                        selector_coupling_condition2 = condition3.square() + condition4.square() + (1-is_k_value).square()
+                        selector_coupling[l][m] = (selector_coupling_condition1 == 0).if_else(1,selector_coupling[l][m]) # TODO: what is better: square, or power of 2 (2^c1 + 2^c2 + 2^k == 1)or absolute values
+                        selector_coupling[m][l] = (selector_coupling_condition2 == 0).if_else(1,selector_coupling[m][l])
 
             for k in range(len(local_fields)):
                 condition1 = (k == (j * (max_bin - 1) + j_value)).if_else(1,0)
-                matrix_selector1[k] = (condition1 + is_j_value==2).if_else(1, matrix_selector1[k])
+                selector_fields[k] = (condition1 + is_j_value==2).if_else(1, selector_fields[k])
 
-        energies[i] -= dot_product_matrix(coupling_matrix, matrix_selector2)
-        energies[i] -= dot_product(local_fields, matrix_selector1)
+        energies[i] -= (dot_product_matrix(coupling_matrix, selector_coupling) + sfix.dot_product(local_fields, selector_fields))
 
     return energies
-
-
 
 def fit(X, pseudocounts, max_bin):
     sitefreq = site_freq(X, pseudocounts, max_bin)
     pairfreq = pair_freq(X,sitefreq, pseudocounts, max_bin)
     coupling_matrix = coupling(pairfreq, sitefreq, pseudocounts, max_bin)
     localfields = local_fields(coupling_matrix, pairfreq, sitefreq, pseudocounts, max_bin)
-
     cutoff = define_cutoff(X, 0.95, coupling_matrix, localfields, max_bin)
+    
     return coupling_matrix, localfields, cutoff
 
 def define_cutoff(X, cutoff_quantile, coupling_matrix, local_fields, max_bin):
     energies = compute_energy(X, coupling_matrix, local_fields, max_bin)
     return find_nth_largest_value_from_array(energies, int(len(energies) * cutoff_quantile)) # Is it better than sorting?
-    #energies.sort()
-    #return energies[int(len(energies) * cutoff_quantile)]
-
 
 def predict(X, coupling_matrix, localfields, cutoff, max_bin):
-
     energies = [compute_energy(X, coupling_matrix, localfields, max_bin)]
     y_pred = Array(len(X), cint)
 
     min_energies = min_along_axis(energies, 0)
 
     for row in range(len(X)):
-        y_pred[row] = (min_energies[row] < cutoff).if_else(0,1).reveal()
+        y_pred[row] = (min_energies[row] >= cutoff).reveal()
 
     return y_pred
 
